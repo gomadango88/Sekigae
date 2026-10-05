@@ -362,7 +362,7 @@
 (function () {
   "use strict";
   const config = window.SEKIGAE_CONFIG;
-  const encryptedNames = window.SEKIGAE_NAMES;
+  let encryptedNames = window.SEKIGAE_NAMES;
   const { seats, rows, cols } = Seating.parseLayout(config.layout);
   const allNos = config.students.map((s) => s.no).sort((a, b) => a - b);
   const frontRows = config.frontRows ?? 3;
@@ -552,6 +552,21 @@
   }
 
   // ---- 名前（暗号化された一覧） ----
+  // names.js はブラウザに古いものが残りやすいので、出力画面を開くたびに最新を読み直す。
+  // 読めないとき（プレビューなど）は、ページに読み込まれたものを使う。
+  async function refreshNames() {
+    try {
+      const res = await fetch("names.js", { cache: "no-store" });
+      if (!res.ok) return;
+      const m = (await res.text()).match(/SEKIGAE_NAMES\s*=\s*(\{[\s\S]*\}|null)\s*;/);
+      if (!m) return;
+      const latest = JSON.parse(m[1]);
+      if (JSON.stringify(latest) === JSON.stringify(encryptedNames)) return;
+      encryptedNames = latest;
+      names = null; // 一覧が作り直されたので、読み込み直す
+    } catch (e) { /* そのまま */ }
+  }
+
   function syncNames() {
     $("names-none").hidden = !!encryptedNames;
     $("names-locked").hidden = !encryptedNames || !!names;
@@ -813,13 +828,15 @@
     storage.remove(FRONT_KEY);
     syncFrontPicker();
   });
-  $("open-output").addEventListener("click", () => {
+  $("open-output").addEventListener("click", async () => {
     showOutputNote("");
     if (!$("start-date").value) $("start-date").value = fileDate(current.at);
     $("start-date").disabled = !$("with-date").checked;
     syncNames();
     $("output-dialog").showModal();
-    tryUnlockSaved();
+    await refreshNames();
+    syncNames();
+    await tryUnlockSaved();
   });
   $("with-date").addEventListener("change", () => {
     $("start-date").disabled = !$("with-date").checked;
