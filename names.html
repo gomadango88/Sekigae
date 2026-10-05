@@ -67,7 +67,8 @@
   }
   .hint { color: var(--muted); font-size: 0.85rem; }
   .warn { color: var(--error); font-size: 0.85rem; white-space: pre-line; }
-  textarea, input[type="password"] {
+  .for-password-manager { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  textarea, input[type="password"], input[type="text"]:not(.for-password-manager) {
     font: inherit;
     box-sizing: border-box;
     width: 100%;
@@ -125,11 +126,14 @@
 
   <section>
     <h2>2. パスワードを決める</h2>
-    <p class="hint">座席表を出力するときに入力します。名前を守るのはこのパスワードだけなので、8文字以上の、推測されにくいものにしてください。</p>
+    <p class="hint">座席表を出力するときに入力します。名前を守るのはこのパスワードだけなので、8文字以上の、推測されにくいものにしてください。前のパスワードを忘れたときも、ここで新しく決め直せます。</p>
+    <p class="hint">パスワードマネージャに保存するときは、「座席表の名前一覧」という項目として保存されます。座席表のページでも同じ項目を選んでください。</p>
+    <input type="text" class="for-password-manager" id="pm-user" autocomplete="username" value="座席表の名前一覧" readonly tabindex="-1" aria-hidden="true">
     <label for="pw1">パスワード</label>
     <input type="password" id="pw1" autocomplete="new-password">
     <label for="pw2">もう一度</label>
     <input type="password" id="pw2" autocomplete="new-password">
+    <label><input type="checkbox" id="show-pw"> パスワードを表示</label>
     <p class="warn" id="pw-warn" hidden></p>
     <div class="row"><button type="button" class="primary" id="make">names.js を作る</button></div>
   </section>
@@ -142,11 +146,12 @@
       <button type="button" id="download">names.js を保存</button>
       <span class="hint" id="result-note"></span>
     </div>
+    <p class="hint">次のどちらかで、リポジトリの <code>names.js</code> を置き換えます。前の <code>names.js</code> は消さずに上書きしてかまいません。</p>
     <ol class="hint">
-      <li>GitHub でこのリポジトリの <code>names.js</code> を開き、鉛筆のアイコン（Edit）を押します。</li>
-      <li>中身をすべて消して、上の内容を貼り付けます。</li>
-      <li>「Commit changes」を押します。数分で公開ページに反映されます。</li>
+      <li>「names.js を保存」で保存したファイルを、GitHub のリポジトリの「Add file」→「Upload files」からアップロードし、「Commit changes」を押す。</li>
+      <li>または、GitHub で <code>names.js</code> を開いて鉛筆のアイコン（Edit）を押し、中身をすべて上の内容に置き換えて「Commit changes」を押す。</li>
     </ol>
+    <p class="hint">数分で公開ページに反映されます。座席表のページで「座席表を出力」を開くと新しい一覧が読み込まれ、新しいパスワードを聞かれます。</p>
   </section>
 </main>
 <!-- artifact:scripts:start -->
@@ -202,7 +207,16 @@
     if (msg) { warn.textContent = msg; warn.hidden = false; return; }
 
     $("make").disabled = true;
-    const blob = await Secret.encryptNames(names, pw);
+    const blob = { ...(await Secret.encryptNames(names, pw)), created: new Date().toISOString() };
+    // 作ったものがこのパスワードで開けることを確かめる
+    try {
+      await Secret.unlockWithPassword(blob, pw);
+    } catch (e) {
+      $("make").disabled = false;
+      warn.textContent = "暗号化に失敗しました。もう一度「names.js を作る」を押してください。";
+      warn.hidden = false;
+      return;
+    }
     $("make").disabled = false;
     $("output").value =
       "// 名前の一覧（暗号化済み）。names.html で作り直せます。\n" +
@@ -234,6 +248,11 @@
   }
 
   $("list").addEventListener("input", check);
+  $("show-pw").addEventListener("change", () => {
+    const type = $("show-pw").checked ? "text" : "password";
+    $("pw1").type = type;
+    $("pw2").type = type;
+  });
   $("file").addEventListener("change", loadFile);
   $("make").addEventListener("click", make);
   $("copy").addEventListener("click", copy);

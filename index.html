@@ -194,7 +194,7 @@
   .names { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; }
   .names > div { display: flex; flex-direction: column; gap: 8px; }
   .names .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .names input[type="password"] {
+  .names #pw {
     font: inherit;
     padding: 6px 8px;
     border: 1px solid var(--line);
@@ -207,6 +207,7 @@
   .names label { font-size: 0.9rem; }
   .names a { color: var(--accent); }
   .err { margin: 0; color: var(--error); font-size: 0.85rem; }
+  .for-password-manager { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
   .field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.9rem; }
   .field input[type="date"]:disabled { opacity: 0.45; }
@@ -320,12 +321,18 @@
       </div>
       <div id="names-locked" hidden>
         <label for="pw">名前を入れるには、パスワードを入力してください</label>
+        <input type="text" class="for-password-manager" id="pm-user" autocomplete="username" value="座席表の名前一覧" readonly tabindex="-1" aria-hidden="true">
         <div class="row">
           <input type="password" id="pw" autocomplete="current-password">
           <button type="button" id="unlock">名前を読み込む</button>
         </div>
-        <label><input type="checkbox" id="remember" checked> この端末でパスワードを覚える</label>
+        <div class="row">
+          <label><input type="checkbox" id="show-pw"> パスワードを表示</label>
+          <label><input type="checkbox" id="remember" checked> この端末でパスワードを覚える</label>
+        </div>
         <p class="err" id="pw-error" hidden></p>
+        <p class="hint" id="names-created" hidden></p>
+        <p class="hint">パスワードがわからないときは、<a href="names.html" target="_blank" rel="noopener">名前の一覧を作り直して</a>新しいパスワードを決められます。</p>
       </div>
       <div id="names-unlocked" hidden>
         <div class="row">
@@ -570,6 +577,10 @@
   function syncNames() {
     $("names-none").hidden = !!encryptedNames;
     $("names-locked").hidden = !encryptedNames || !!names;
+    // どの一覧を使っているか分かるように、作成日時を出す（作成日時が入っている一覧だけ）
+    const created = encryptedNames && encryptedNames.created ? new Date(encryptedNames.created) : null;
+    $("names-created").hidden = !created;
+    if (created) $("names-created").textContent = `登録されている一覧：${formatDate(created.toISOString())} に作成`;
     $("names-unlocked").hidden = !names;
   }
 
@@ -596,7 +607,7 @@
       if ($("remember").checked) storage.set(NAMEKEY_KEY, { salt: encryptedNames.salt, key: result.savedKey });
       $("pw").value = "";
     } catch (e) {
-      err.textContent = "パスワードが違います。";
+      err.textContent = "パスワードが違います。「パスワードを表示」で入力した内容を確かめてください。";
       err.hidden = false;
     }
     $("unlock").disabled = false;
@@ -847,6 +858,7 @@
     if (e.key === "Enter") { e.preventDefault(); unlock(); }
   });
   $("forget").addEventListener("click", forget);
+  $("show-pw").addEventListener("change", () => { $("pw").type = $("show-pw").checked ? "text" : "password"; });
   $("pdf").addEventListener("click", printPdf);
   $("xlsx").addEventListener("click", saveXlsx);
   $("copy").addEventListener("click", copyTable);
