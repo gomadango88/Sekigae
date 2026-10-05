@@ -134,7 +134,6 @@
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
-  .seat .name { display: none; }
   .seat.empty .no { color: var(--muted); font-weight: 400; }
   .before .seat .no { color: var(--muted); }
 
@@ -209,35 +208,63 @@
   .names a { color: var(--accent); }
   .err { margin: 0; color: var(--error); font-size: 0.85rem; }
 
-  .print-only { display: none; }
+  .field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.9rem; }
+  .field input {
+    font: inherit;
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  /* 印刷用の座席表（A4横）。画面には出さない */
+  .sheet { display: none; }
 
   @media print {
-    @page { size: A4 portrait; margin: 12mm; }
+    @page { size: A4 landscape; margin: 10mm; }
     :root { color-scheme: light; }
     html, body { height: auto; background: #fff; color: #000; }
-    .app { height: auto; padding: 0; gap: 4mm; }
-    .bar, .note, dialog { display: none; }
-    .print-only { display: block; }
-    .print-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 14pt; }
-    .print-head span { font-size: 10pt; }
-    .stage { container-type: normal; display: block; }
-    .room { width: 100%; height: 255mm; gap: 3mm; }
-    .board { background: #fff; color: #000; border: 1px solid #000; font-size: 11pt; padding-block: 1.5mm; }
-    .grid { gap: 1.5mm; }
-    .seat { border-color: #000; background: #fff; color: #000; }
-    .seat.none { border-color: transparent; }
-    .seat .no { font-size: 20pt; color: #000; }
-    .seat.has-name .no { font-size: 13pt; }
-    .seat .name {
-      display: block;
-      font-size: 13pt;
-      font-weight: 700;
-      margin-top: 1.5mm;
-      max-width: 94%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .app, dialog { display: none !important; }
+    .sheet {
+      display: flex;
+      flex-direction: column;
+      gap: 3mm;
+      width: 277mm;
+      height: 186mm;
+      color: #000;
     }
+    .sheet-title { margin: 0; text-align: center; font-size: 17pt; font-weight: 700; }
+    .sheet-head { display: grid; grid-template-columns: 1fr 72mm 1fr; align-items: end; gap: 4mm; font-size: 12pt; }
+    .sheet-count { text-align: right; }
+    .sheet-desk {
+      border: 0.3mm solid #000;
+      text-align: center;
+      font-size: 13pt;
+      padding-block: 1mm;
+      letter-spacing: 1.5em;
+      text-indent: 1.5em;
+    }
+    .sheet-grid {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      column-gap: 9mm;
+      row-gap: 3mm;
+    }
+    .sheet-cell { display: grid; grid-template-columns: 6mm minmax(0, 1fr); min-height: 0; }
+    .sheet-no { font-size: 9pt; line-height: 1; text-align: right; padding-right: 1mm; font-variant-numeric: tabular-nums; }
+    .sheet-box {
+      border: 0.3mm solid #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .sheet-kana { font-size: 7pt; line-height: 1.3; }
+    .sheet-name { font-size: 15pt; line-height: 1.25; white-space: nowrap; }
   }
 </style>
 <!-- artifact:head:end -->
@@ -257,9 +284,9 @@
     </div>
   </header>
   <div class="note" id="note" hidden></div>
-  <div class="print-only print-head"><strong>座席表</strong><span id="print-date"></span></div>
   <main class="stage" id="stage"></main>
 </div>
+<div class="sheet" id="sheet"></div>
 
 <dialog id="front-dialog" aria-labelledby="front-title">
   <form method="dialog" class="dlg">
@@ -300,6 +327,11 @@
           <button type="button" id="forget">この端末の記憶を消す</button>
         </div>
       </div>
+    </div>
+    <div class="field">
+      <label for="start-date">座席表の日付</label>
+      <input type="date" id="start-date">
+      <span class="hint">「○月○日～」として入ります</span>
     </div>
     <div class="dlg-actions">
       <button type="button" id="pdf">PDF・印刷</button>
@@ -391,10 +423,16 @@
 
   // 出力に名前を入れるか
   const useNames = () => !!names && $("with-names").checked;
-  const nameOf = (no) => (useNames() && names[no]) || "";
+  // 1人分の名前。名前の一覧の値は「名前」の文字列か { name, kana }
+  function entryOf(no) {
+    const e = useNames() ? names[no] : null;
+    if (!e) return { name: "", kana: "" };
+    return typeof e === "string" ? { name: e, kana: "" } : { name: e.name || "", kana: e.kana || "" };
+  }
+  const nameOf = (no) => entryOf(no).name;
 
-  // forPrint が true のときだけ名前をマスに入れる（画面には名前を出さない）
-  function render(forPrint) {
+  // 画面には番号だけを出す（名前は出力のときだけ使う）
+  function render() {
     const assignment = current ? current.seats : orderedSeats();
     const matrix = toMatrix(assignment);
 
@@ -416,18 +454,11 @@
         cell.className = "seat empty";
         cell.innerHTML = '<span class="no">－</span>';
       } else {
-        const name = forPrint ? nameOf(no) : "";
-        cell.className = "seat" + (name ? " has-name" : "");
+        cell.className = "seat";
         const n = document.createElement("span");
         n.className = "no";
         n.textContent = no;
         cell.appendChild(n);
-        if (name) {
-          const nm = document.createElement("span");
-          nm.className = "name";
-          nm.textContent = name;
-          cell.appendChild(nm);
-        }
       }
       grid.appendChild(cell);
     }));
@@ -436,7 +467,6 @@
     stage.replaceChildren(room);
 
     $("status").textContent = current ? `${formatDate(current.at)} の席替え` : "席替え前（出席番号順）";
-    $("print-date").textContent = current ? formatDate(current.at) : "";
     $("flip").textContent = fromTeacher ? "生徒から見る" : "教卓から見る";
     $("flip").setAttribute("aria-pressed", String(fromTeacher));
     $("undo").disabled = history.length === 0;
@@ -561,23 +591,110 @@
     return pos;
   }
 
-  // 座席表（画面と同じ向き）と出席番号順の一覧の2シート
+  const sheetTitle = () => `${config.className || ""}座席表`;
+  const countLabel = () => `在籍　${allNos.length}名`;
+  // 「4月7日～」の形。日付が未入力なら席替えした日
+  function startDateLabel() {
+    const [, m, d] = ($("start-date").value || fileDate(current.at)).split("-").map(Number);
+    return `${m}月${d}日～`;
+  }
+
+  // 印刷用の座席表（各席の左上に出席番号、四角の中にふりがなと名前）
+  function renderSheet() {
+    const el = (cls, text) => {
+      const e = document.createElement("div");
+      e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    };
+    const head = el("sheet-head");
+    head.append(el("sheet-date", startDateLabel()), fromTeacher ? el("") : el("sheet-desk", "教卓"), el("sheet-count", countLabel()));
+
+    const grid = el("sheet-grid");
+    grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+    toMatrix(current.seats).forEach((line) => line.forEach((no) => {
+      const cell = el("sheet-cell");
+      if (no !== undefined) {
+        const box = el("sheet-box");
+        if (no !== null) {
+          const { name, kana } = entryOf(no);
+          if (kana) box.appendChild(el("sheet-kana", kana));
+          if (name) {
+            const nm = el("sheet-name", name);
+            // 長い名前は小さくして四角に収める（半角は全角の約半分の幅）
+            const units = Array.from(name).reduce((n, ch) => n + (ch.charCodeAt(0) < 0x100 ? 0.55 : 1), 0);
+            if (units > 6) nm.style.fontSize = `${Math.max(8, (15 * 6) / units).toFixed(1)}pt`;
+            box.appendChild(nm);
+          }
+        }
+        cell.append(el("sheet-no", no === null ? "" : no), box);
+      }
+      grid.appendChild(cell);
+    }));
+
+    const parts = [el("sheet-title", sheetTitle()), head, grid];
+    if (fromTeacher) {
+      const foot = el("sheet-head");
+      foot.append(el(""), el("sheet-desk", "教卓"), el(""));
+      parts.push(foot);
+    }
+    $("sheet").replaceChildren(...parts);
+  }
+
+  // 座席表（印刷と同じ見た目・A4横）と出席番号順の一覧の2シート
   function buildWorkbook() {
     const S = Xlsx.STYLE;
+    // 1つの席の列 = 出席番号の列 + 名前の四角の列。席の列の間に通路の列を挟む
+    const width = cols * 3 - 1;
+    const numCol = (c) => c * 3;
+    const boxCol = (c) => c * 3 + 1;
+    const blank = () => Array(width).fill(null);
+    const fill = (row, from, to, cell) => { for (let i = from; i <= to; i++) row[i] = { ...cell, v: i === from ? cell.v : "" }; };
+
+    const deskFrom = boxCol(Math.floor((cols - 1) / 2));
+    const deskTo = boxCol(Math.ceil((cols - 1) / 2));
+    const sheetRows = [];
+    const heights = {};
+    const merges = [];
+    const mergeRow = (r, from, to) => merges.push(`${Xlsx.colName(from)}${r + 1}:${Xlsx.colName(to)}${r + 1}`);
+    const push = (row, h) => { heights[sheetRows.length] = h; sheetRows.push(row); return sheetRows.length - 1; };
+    const deskRow = () => {
+      const row = blank();
+      fill(row, deskFrom, deskTo, { v: "教　　卓", s: S.desk });
+      mergeRow(push(row, 24), deskFrom, deskTo);
+    };
+
+    const titleRow = blank();
+    titleRow[0] = { v: sheetTitle(), s: S.title };
+    mergeRow(push(titleRow, 30), 0, width - 1);
+
+    const headRow = blank();
+    headRow[0] = { v: startDateLabel(), s: S.left };
+    headRow[deskTo + 2] = { v: countLabel(), s: S.right };
+    if (!fromTeacher) fill(headRow, deskFrom, deskTo, { v: "教　　卓", s: S.desk });
+    const headIndex = push(headRow, 24);
+    if (deskFrom > 1) mergeRow(headIndex, 0, deskFrom - 2);
+    mergeRow(headIndex, deskTo + 2, width - 1);
+    if (!fromTeacher) mergeRow(headIndex, deskFrom, deskTo);
+    push(blank(), 8);
+
     const withNames = useNames();
-    const sheetRows = [[{ v: `座席表　${formatDate(current.at)}`, s: S.title }]];
-    const boardRow = Array.from({ length: cols }, (_, c) => ({ v: c === 0 ? "黒板" : "", s: S.board }));
-    const grid = toMatrix(current.seats).map((line) => line.map((no) => {
-      if (no === undefined) return null;
-      if (no === null) return { v: "", s: S.seat };
-      const name = nameOf(no);
-      return { v: name ? `${no}\n${name}` : no, s: S.seat };
-    }));
-    if (fromTeacher) sheetRows.push(...grid, boardRow);
-    else sheetRows.push(boardRow, ...grid);
-    const boardIndex = fromTeacher ? sheetRows.length - 1 : 1;
-    const heights = { 0: 24 };
-    sheetRows.forEach((_, i) => { if (i > 0) heights[i] = i === boardIndex ? 22 : withNames ? 48 : 34; });
+    toMatrix(current.seats).forEach((line, r) => {
+      if (r > 0) push(blank(), 6);
+      const row = blank();
+      line.forEach((no, c) => {
+        if (no === undefined) return;
+        const { name, kana } = no === null ? { name: "", kana: "" } : entryOf(no);
+        row[numCol(c)] = { v: no === null ? "" : no, s: S.num };
+        row[boxCol(c)] = { v: kana ? `${kana}\n${name}` : name, s: S.box };
+      });
+      push(row, withNames ? 40 : 34);
+    });
+    if (fromTeacher) {
+      push(blank(), 8);
+      deskRow();
+    }
 
     const pos = positions();
     const listRows = [["出席番号", "名前", "前から何列目", "左から何番目"].map((v) => ({ v, s: S.head }))];
@@ -590,9 +707,10 @@
       {
         name: "座席表",
         rows: sheetRows,
-        colWidths: Array(cols).fill(16),
+        colWidths: Array.from({ length: width }, (_, i) => [3.5, 17, 2.5][i % 3]),
         rowHeights: heights,
-        merges: [`A${boardIndex + 1}:${Xlsx.colName(cols - 1)}${boardIndex + 1}`],
+        merges,
+        landscape: true,
       },
       { name: "一覧", rows: listRows, colWidths: [10, 20, 14, 14] },
     ]);
@@ -625,9 +743,7 @@
 
   function printPdf() {
     $("output-dialog").close();
-    render(true);
-    // 印刷画面を閉じたら名前を外す
-    window.addEventListener("afterprint", () => render(), { once: true });
+    renderSheet();
     window.print();
     if (window.SEKIGAE_PREVIEW) showNote("プレビュー環境では印刷できません。GitHub Pages 版で使えます。");
   }
@@ -683,6 +799,7 @@
   });
   $("open-output").addEventListener("click", () => {
     showOutputNote("");
+    if (!$("start-date").value) $("start-date").value = fileDate(current.at);
     syncNames();
     $("output-dialog").showModal();
     tryUnlockSaved();
@@ -695,6 +812,9 @@
   $("pdf").addEventListener("click", printPdf);
   $("xlsx").addEventListener("click", saveXlsx);
   $("copy").addEventListener("click", copyTable);
+  // ブラウザのメニューから印刷したときも座席表を出し、終わったら名前ごと消す
+  window.addEventListener("beforeprint", () => { if (current) renderSheet(); });
+  window.addEventListener("afterprint", () => $("sheet").replaceChildren());
 
   load();
   buildFrontPicker();

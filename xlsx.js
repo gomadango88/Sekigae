@@ -11,14 +11,17 @@
   }
 
   // スタイル番号（styles.xml の cellXfs の並び順）
-  const STYLE = { plain: 0, title: 1, board: 2, seat: 3, head: 4, cell: 5 };
+  const STYLE = { plain: 0, title: 1, desk: 2, box: 3, num: 4, head: 5, cell: 6, right: 7, left: 8 };
   const STYLES_XML =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    '<fonts count="3">' +
+    '<fonts count="6">' +
     '<font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
-    '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
-    '<font><b/><sz val="12"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+    '<font><b/><sz val="16"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+    '<font><sz val="12"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+    '<font><sz val="9"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+    '<font><b/><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+    '<font><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
     "</fonts>" +
     '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
     '<fill><patternFill patternType="solid"><fgColor rgb="FFDDE6E2"/><bgColor indexed="64"/></patternFill></fill></fills>' +
@@ -26,13 +29,16 @@
     '<border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right>' +
     '<top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    '<cellXfs count="6">' +
+    '<cellXfs count="9">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
-    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
-    '<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
-    '<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
-    '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1" shrinkToFit="0"/></xf>' +
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>' +
+    '<xf numFmtId="0" fontId="4" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="bottom"/></xf>' +
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="bottom"/></xf>' +
     "</cellXfs>" +
     '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles>' +
     "</styleSheet>";
