@@ -6,7 +6,7 @@ window.SEKIGAE_CONFIG = {
   //   S = 座席
   //   . = 座席なし（図の斜線部分）
   layout: [
-    "...SS.",
+    "..SS..",
     "SSSSSS",
     "SSSSSS",
     "SSSSSS",
