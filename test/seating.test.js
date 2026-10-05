@@ -146,3 +146,47 @@ test("Shift_JIS の CSV を読む", () => {
   assert.strictEqual(Roster.decodeBytes(sjis), "1,山田");
   assert.strictEqual(Roster.decodeBytes(Buffer.from("1,山田", "utf8")), "1,山田");
 });
+
+const Share = require("../share.js");
+
+test("完全再現コードは43桁＋確認2桁で、元の座席に戻る", () => {
+  const { seats } = Seating.parseLayout(base.layout);
+  assert.strictEqual(Share.rankDigits(seats.length), 43);
+  for (let t = 0; t < 200; t++) {
+    const a = Seating.assignSeats(base);
+    const code = Share.encodeSeats(a, base.layout, nos42);
+    assert.strictEqual(code.length, 45);
+    assert.deepStrictEqual(Share.decodeSeats(Share.group(code), base.layout, nos42, seats.length).seats, a);
+  }
+});
+
+test("完全再現コードの入力ミスを検出する", () => {
+  const { seats } = Seating.parseLayout(base.layout);
+  const code = Share.encodeSeats(Seating.assignSeats(base), base.layout, nos42);
+  let caught = 0;
+  for (let i = 0; i < code.length; i++) {
+    const wrong = code.slice(0, i) + (code[i] === "A" ? "B" : "A") + code.slice(i + 1);
+    if (Share.decodeSeats(wrong, base.layout, nos42, seats.length).error) caught++;
+  }
+  assert.ok(caught >= code.length - 1);
+  assert.strictEqual(Share.decodeSeats(code.slice(1), base.layout, nos42, seats.length).error, "format");
+});
+
+test("空席があっても完全再現できる", () => {
+  const cfg = { ...base, students: base.students.slice(0, 40) };
+  const nos40 = range(1, 40);
+  const a = Seating.assignSeats(cfg);
+  const code = Share.encodeSeats(a, cfg.layout, nos40);
+  assert.deepStrictEqual(Share.decodeSeats(code, cfg.layout, nos40, 42).seats, a);
+});
+
+test("同じシードと設定なら同じ席替えになり、設定が違えば検出する", () => {
+  const front = [2, 9, 10];
+  const cfg = withFront(base, front);
+  const code = Share.encodeSeed(0x1a2b3c4d, cfg, front);
+  const { seed } = Share.decodeSeed(code, cfg, front);
+  assert.strictEqual(seed, 0x1a2b3c4d);
+  assert.deepStrictEqual(Seating.assignSeats(cfg, Share.seededRandom(seed)), Seating.assignSeats(cfg, Share.seededRandom(0x1a2b3c4d)));
+  assert.notDeepStrictEqual(Seating.assignSeats(cfg, Share.seededRandom(1)), Seating.assignSeats(cfg, Share.seededRandom(2)));
+  assert.strictEqual(Share.decodeSeed(code, cfg, [2, 9]).error, "settings");
+});

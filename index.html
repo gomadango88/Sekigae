@@ -207,6 +207,36 @@
   .names label { font-size: 0.9rem; }
   .names a { color: var(--accent); }
   .err { margin: 0; color: var(--error); font-size: 0.85rem; }
+  .dlg h3 { margin: 0 0 8px; font-size: 0.95rem; }
+  .share-grid { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 520px) { .share-grid { grid-template-columns: minmax(0, 1fr); } }
+  .qr { background: #fff; padding: 6px; border-radius: 6px; border: 1px solid var(--line); width: 156px; }
+  .qr svg { display: block; width: 100%; height: auto; }
+  .share-codes { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .share-code { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .share-code .row { display: flex; gap: 8px; align-items: center; }
+  .share-label { font-size: 0.85rem; font-weight: 700; }
+  .share-code code {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    word-break: break-word;
+    flex: 1;
+    min-width: 0;
+  }
+  .share-receive { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .share-receive .row { display: flex; gap: 6px; }
+  #import-code {
+    font: inherit;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink);
+    flex: 1;
+    min-width: 0;
+  }
   .for-password-manager { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
   .field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.9rem; }
@@ -289,6 +319,7 @@
       <button type="button" id="flip" aria-pressed="false">教卓から見る</button>
       <button type="button" id="open-front">前希望</button>
       <button type="button" id="open-output">座席表を出力</button>
+      <button type="button" id="open-share">共有</button>
     </div>
   </header>
   <div class="note" id="note" hidden></div>
@@ -358,12 +389,51 @@
     <p class="hint" id="output-note" hidden></p>
   </form>
 </dialog>
+<dialog id="share-dialog" aria-labelledby="share-title">
+  <form method="dialog" class="dlg">
+    <h2 id="share-title">座席の共有</h2>
+    <div class="share-send" id="share-send">
+      <h3>この座席を別の端末で開く</h3>
+      <div class="share-grid">
+        <div class="qr" id="share-qr" role="img" aria-label="完全再現コードの QR コード"></div>
+        <div class="share-codes">
+          <div class="share-code">
+            <span class="share-label">完全再現コード</span>
+            <div class="row"><code id="full-code"></code><button type="button" id="copy-full">コピー</button></div>
+            <p class="hint">QR コードを読み取るか、このコードを入力すると、どの端末でもこの座席がそのまま開きます。</p>
+          </div>
+          <div class="share-code">
+            <span class="share-label">シード</span>
+            <div class="row"><code id="seed-code"></code><button type="button" id="copy-seed">コピー</button></div>
+            <p class="hint" id="seed-hint"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="share-receive">
+      <h3>受け取ったコードで座席を再現する</h3>
+      <label for="import-code" class="hint">シード（10桁）か完全再現コード（45桁）。区切りの空白はあってもなくてもかまいません。</label>
+      <div class="row">
+        <input type="text" id="import-code" autocomplete="off" spellcheck="false">
+        <button type="button" id="import">再現する</button>
+      </div>
+      <p class="err" id="import-error" hidden></p>
+    </div>
+    <div class="dlg-actions">
+      <span class="hint" id="share-note"></span>
+      <span class="spacer"></span>
+      <button value="close">閉じる</button>
+    </div>
+  </form>
+</dialog>
 <!-- artifact:scripts:start -->
 <script src="config.js"></script>
 <script src="names.js"></script>
 <script src="seating.js"></script>
 <script src="secret.js"></script>
 <script src="xlsx.js"></script>
+<script src="share.js"></script>
+<script src="vendor/qrcode.js"></script>
 <!-- artifact:scripts:end -->
 <script>
 (function () {
@@ -501,13 +571,24 @@
     note.hidden = !text;
   }
 
-  function doShuffle() {
+  // 前希望を反映した設定
+  const configWithFront = (frontNos) => ({ ...config, students: allNos.map((no) => ({ no, front: frontNos.includes(no) })) });
+
+  // 新しい座席にする（戻せるように今の座席を履歴に積む）
+  function applySeats(next) {
     if (current) history = history.concat([current]).slice(-20);
-    const students = allNos.map((no) => ({ no, front: front.has(no) }));
-    current = { seats: Seating.assignSeats({ ...config, students }), at: new Date().toISOString() };
+    current = next;
     save();
-    showNote("");
     render();
+  }
+
+  // 席替えのたびに乱数のシードを決め、あとで同じ席替えを再現できるようにする
+  function doShuffle() {
+    const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+    const frontNos = [...front].sort((a, b) => a - b);
+    const seats = Seating.assignSeats(configWithFront(frontNos), Share.seededRandom(seed));
+    showNote("");
+    applySeats({ seats, at: new Date().toISOString(), seed, front: frontNos });
   }
 
   function undo() {
@@ -523,6 +604,83 @@
     fromTeacher = !fromTeacher;
     storage.set(VIEW_KEY, fromTeacher ? "teacher" : "student");
     render();
+  }
+
+  // ---- 共有（シードと完全再現コード） ----
+  const siteUrl = () => (location.protocol.startsWith("http") && !window.SEKIGAE_PREVIEW
+    ? location.origin + location.pathname
+    : config.siteUrl || location.href.split("#")[0]);
+  const fullCodeOf = (seats) => Share.encodeSeats(seats, config.layout, allNos);
+
+  function openShare() {
+    $("import-error").hidden = true;
+    $("share-note").textContent = "";
+    $("share-send").hidden = !current;
+    if (current) {
+      const code = fullCodeOf(current.seats);
+      $("full-code").textContent = Share.group(code, 5);
+      const qr = qrcode(0, "M");
+      qr.addData(`${siteUrl()}#s=${code}`);
+      qr.make();
+      $("share-qr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+      const hasSeed = typeof current.seed === "number";
+      $("seed-code").textContent = hasSeed
+        ? Share.group(Share.encodeSeed(current.seed, configWithFront(current.front || []), current.front || []), 4)
+        : "なし";
+      $("copy-seed").hidden = !hasSeed;
+      $("seed-hint").textContent = hasSeed
+        ? "短いコードです。前希望などの設定がこの端末と同じ端末でだけ、同じ座席になります。"
+        : "コードから再現した座席にはシードがありません。完全再現コードを使ってください。";
+    }
+    $("share-dialog").showModal();
+  }
+
+  function copyText(text, label) {
+    const done = () => { $("share-note").textContent = `${label}をコピーしました。`; };
+    const fail = () => { $("share-note").textContent = "コピーできませんでした。コードを選んでコピーしてください。"; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fail);
+    else fail();
+  }
+
+  // 入力されたコード（URL でも可）から座席を再現する。うまくいかなければ理由を返す
+  function importCode(input) {
+    const m = String(input).match(/[#&]s=([0-9a-fA-F\s-]+)/);
+    const code = Share.clean(m ? m[1] : input);
+    if (code.length === 10) {
+      const frontNos = [...front].sort((a, b) => a - b);
+      const r = Share.decodeSeed(code, configWithFront(frontNos), frontNos);
+      if (r.error === "settings") return "シードは合っていても、この端末の前希望などの設定がコードを作った端末と違うため、同じ座席にできません。完全再現コードを使ってください。（入力ミスの場合もあります）";
+      if (r.error) return "シードが読み取れませんでした。";
+      const next = Seating.assignSeats(configWithFront(frontNos), Share.seededRandom(r.seed));
+      applySeats({ seats: next, at: new Date().toISOString(), seed: r.seed, front: frontNos });
+      return null;
+    }
+    if (code.length === Share.rankDigits(seats.length) + 2) {
+      const r = Share.decodeSeats(code, config.layout, allNos, seats.length);
+      if (r.error) return "コードが正しくありません。入力ミスがないか確かめてください。";
+      applySeats({ seats: r.seats, at: new Date().toISOString() });
+      return null;
+    }
+    return `桁数が違います（${code.length}桁）。シードは10桁、完全再現コードは${Share.rankDigits(seats.length) + 2}桁です。`;
+  }
+
+  function doImport() {
+    const error = importCode($("import-code").value);
+    $("import-error").textContent = error || "";
+    $("import-error").hidden = !error;
+    if (!error) {
+      $("import-code").value = "";
+      $("share-dialog").close();
+      showNote("受け取ったコードの座席を表示しています。「1つ前に戻す」で元に戻せます。");
+    }
+  }
+
+  // QR コードから開いたとき（URL の #s=...）
+  function importFromUrl() {
+    if (!/[#&]s=/.test(location.hash)) return;
+    const error = importCode(location.hash);
+    showNote(error ? `共有された座席を開けませんでした。${error}` : "共有された座席を表示しています。「1つ前に戻す」で元に戻せます。");
+    try { window.history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* そのまま */ }
   }
 
   // ---- 前希望 ----
@@ -858,6 +1016,13 @@
     if (e.key === "Enter") { e.preventDefault(); unlock(); }
   });
   $("forget").addEventListener("click", forget);
+  $("open-share").addEventListener("click", openShare);
+  $("copy-full").addEventListener("click", () => copyText(Share.clean($("full-code").textContent), "完全再現コード"));
+  $("copy-seed").addEventListener("click", () => copyText(Share.clean($("seed-code").textContent), "シード"));
+  $("import").addEventListener("click", doImport);
+  $("import-code").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); doImport(); }
+  });
   $("show-pw").addEventListener("change", () => { $("pw").type = $("show-pw").checked ? "text" : "password"; });
   $("pdf").addEventListener("click", printPdf);
   $("xlsx").addEventListener("click", saveXlsx);
@@ -867,6 +1032,7 @@
   window.addEventListener("afterprint", () => $("sheet").replaceChildren());
 
   load();
+  importFromUrl();
   $("with-date").checked = storage.get(DATE_KEY) !== false;
   buildFrontPicker();
   render();

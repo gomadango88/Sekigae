@@ -5,6 +5,9 @@ window.SEKIGAE_CONFIG = {
   // 座席表のタイトル（「3年6組座席表」のように入ります）
   className: "3年6組",
 
+  // 公開ページの URL（共有用の QR コードに入ります）
+  siteUrl: "https://gomadango88.github.io/Sekigae/",
+
   // 座席の配置。1行目が教室の前方（黒板側）です。
   //   S = 座席
   //   . = 座席なし（図の斜線部分）
