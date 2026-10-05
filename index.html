@@ -186,6 +186,7 @@
     <div class="actions">
       <button type="button" class="primary" id="shuffle">席替えする</button>
       <button type="button" id="undo" disabled>1つ前に戻す</button>
+      <button type="button" id="flip" aria-pressed="false">教卓から見る</button>
       <button type="button" id="pdf">PDF・印刷</button>
       <button type="button" id="csv">CSVで保存</button>
       <button type="button" id="copy">表をコピー</button>
@@ -206,6 +207,7 @@
   const { seats, rows, cols } = Seating.parseLayout(config.layout);
   const studentsByNo = new Map(config.students.map((s) => [s.no, s]));
   const STORAGE_KEY = "sekigae:v1";
+  const VIEW_KEY = "sekigae:view";
   const signature = JSON.stringify([config.layout, config.frontRows, config.students.map((s) => [s.no, !!s.front])]);
 
   const $ = (id) => document.getElementById(id);
@@ -214,6 +216,8 @@
   // 現在の配置と、戻すための履歴
   let current = null; // { seats: [番号|null...], at: ISO文字列 }
   let history = [];
+  // true のとき教卓側から見た向き（上下左右を反転し、黒板を下に置く）
+  let fromTeacher = false;
 
   function load() {
     try {
@@ -223,6 +227,7 @@
         history = saved.history || [];
       }
     } catch (e) { /* 保存できない環境ではそのまま */ }
+    try { fromTeacher = localStorage.getItem(VIEW_KEY) === "teacher"; } catch (e) { /* 同上 */ }
   }
   function save() {
     try {
@@ -245,11 +250,11 @@
     return seats.map((_, i) => (i < nos.length ? nos[i] : null));
   }
 
-  // 行（前から）× 列（左から）のマス目。座席でないマスは undefined
+  // 表示する向きのマス目。生徒から見た向きなら1行目が黒板側。座席でないマスは undefined
   function toMatrix(assignment) {
     const m = Array.from({ length: rows }, () => Array(cols).fill(undefined));
     seats.forEach((seat, i) => { m[seat.row][seat.col] = assignment[i]; });
-    return m;
+    return fromTeacher ? m.reverse().map((line) => line.reverse()) : m;
   }
 
   function label(no) {
@@ -267,7 +272,6 @@
     const board = document.createElement("div");
     board.className = "board";
     board.textContent = "黒板";
-    room.appendChild(board);
 
     const grid = document.createElement("div");
     grid.className = "grid";
@@ -296,13 +300,13 @@
       }
       grid.appendChild(cell);
     }));
-    room.appendChild(grid);
+    if (fromTeacher) room.append(grid, board);
+    else room.append(board, grid);
     stage.replaceChildren(room);
 
-    const frontCount = config.students.filter((s) => s.front).length;
-    $("status").textContent =
-      (current ? `${formatDate(current.at)} の席替え` : "席替え前（出席番号順）") +
-      `　${config.students.length}人・前希望${frontCount}人`;
+    $("status").textContent = current ? `${formatDate(current.at)} の席替え` : "席替え前（出席番号順）";
+    $("flip").textContent = fromTeacher ? "生徒から見る" : "教卓から見る";
+    $("flip").setAttribute("aria-pressed", String(fromTeacher));
     $("print-date").textContent = current ? formatDate(current.at) : "";
     $("undo").disabled = history.length === 0;
     ["pdf", "csv", "copy"].forEach((id) => { $(id).disabled = !current; });
@@ -322,6 +326,12 @@
     render();
   }
 
+  function flip() {
+    fromTeacher = !fromTeacher;
+    try { localStorage.setItem(VIEW_KEY, fromTeacher ? "teacher" : "student"); } catch (e) { /* 保存できない環境ではそのまま */ }
+    render();
+  }
+
   function undo() {
     if (!history.length) return;
     current = history[history.length - 1];
@@ -331,7 +341,7 @@
     render();
   }
 
-  // 書き出し用の表（1行目が黒板側）
+  // 書き出し用の表（画面と同じ向き）
   function gridRows() {
     return toMatrix(current.seats).map((line) => line.map((no) => (no === undefined ? "" : label(no))));
   }
@@ -344,8 +354,9 @@
   function downloadCsv() {
     const lines = [];
     lines.push(["座席表", formatDate(current.at)]);
-    lines.push(["（黒板）"]);
-    gridRows().forEach((r) => lines.push(r));
+    const rowsOut = gridRows();
+    if (fromTeacher) lines.push(...rowsOut, ["（黒板）"]);
+    else lines.push(["（黒板）"], ...rowsOut);
     lines.push([]);
     lines.push(["出席番号", "名前", "前から何列目", "左から何番目"]);
     const pos = new Map();
@@ -373,7 +384,8 @@
 
   // タブ区切りでコピー。Googleスプレッドシートにそのまま貼り付けられる
   function copyTable() {
-    const text = [["黒板"]].concat(gridRows()).map((r) => r.join("\t")).join("\n");
+    const text = (fromTeacher ? gridRows().concat([["黒板"]]) : [["黒板"]].concat(gridRows()))
+      .map((r) => r.join("\t")).join("\n");
     const done = () => showNote("座席表をコピーしました。スプレッドシートの左上のセルに貼り付けてください。");
     const fallback = () => {
       const ta = document.createElement("textarea");
@@ -403,6 +415,7 @@
 
   $("shuffle").addEventListener("click", doShuffle);
   $("undo").addEventListener("click", undo);
+  $("flip").addEventListener("click", flip);
   $("pdf").addEventListener("click", printPdf);
   $("csv").addEventListener("click", downloadCsv);
   $("copy").addEventListener("click", copyTable);
