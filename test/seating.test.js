@@ -85,3 +85,15 @@ test("重複や人数超過を検出する", () => {
   const dup = { ...base, students: base.students.concat([{ no: 1, name: "", front: false }]) };
   assert.strictEqual(Seating.validate(dup).length, 2);
 });
+
+const Secret = require("../secret.js");
+
+test("名前の暗号化と復号", async () => {
+  const names = { 1: "山田 太郎", 2: "佐藤 花子" };
+  const blob = await Secret.encryptNames(names, "correct horse");
+  assert.ok(!JSON.stringify(blob).includes("山田"));
+  const { names: got, savedKey } = await Secret.unlockWithPassword(blob, "correct horse");
+  assert.deepStrictEqual(got, { 1: "山田 太郎", 2: "佐藤 花子" });
+  assert.deepStrictEqual(await Secret.unlockWithSavedKey(blob, savedKey), got);
+  await assert.rejects(Secret.unlockWithPassword(blob, "wrong password"));
+});

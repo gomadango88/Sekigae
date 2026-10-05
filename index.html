@@ -20,21 +20,23 @@
     --board-ink: #f2f5ef;
     --accent: #2e5a4c;
     --accent-ink: #ffffff;
+    --error: #b4483c;
     --font: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #111715; --surface: #1a2320; --ink: #e6eeea; --muted: #94a6a0; --line: #33433d;
-      --board: #24463b; --board-ink: #e8efe6; --accent: #8cc4ae; --accent-ink: #0f1a16;
+      --board: #24463b; --board-ink: #e8efe6; --accent: #8cc4ae; --accent-ink: #0f1a16; --error: #e58a7e;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #111715; --surface: #1a2320; --ink: #e6eeea; --muted: #94a6a0; --line: #33433d;
-    --board: #24463b; --board-ink: #e8efe6; --accent: #8cc4ae; --accent-ink: #0f1a16;
+    --board: #24463b; --board-ink: #e8efe6; --accent: #8cc4ae; --accent-ink: #0f1a16; --error: #e58a7e;
     color-scheme: dark;
   }
 
+  [hidden] { display: none !important; }
   html, body { height: 100%; }
   body {
     margin: 0;
@@ -72,7 +74,7 @@
     cursor: pointer;
   }
   button:hover:not(:disabled) { border-color: var(--muted); }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button:disabled { opacity: 0.45; cursor: default; }
   button.primary {
     background: var(--accent);
@@ -132,27 +134,80 @@
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
-  .seat.has-name .no { font-size: min(40cqh, 30cqw); }
-  .seat .name {
-    font-size: min(24cqh, 15cqw);
-    line-height: 1.2;
-    margin-top: 4cqh;
-    max-width: 94%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .seat .name { display: none; }
   .seat.empty .no { color: var(--muted); font-weight: 400; }
   .before .seat .no { color: var(--muted); }
 
   .error {
-    border: 1px solid #b4483c;
-    color: #b4483c;
+    border: 1px solid var(--error);
+    color: var(--error);
     background: var(--surface);
     padding: 12px 16px;
     border-radius: 6px;
     white-space: pre-line;
   }
+
+  /* ダイアログ */
+  dialog {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0;
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    box-sizing: border-box;
+  }
+  dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+  .dlg { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+  .dlg h2 { margin: 0; font-size: 1.1rem; }
+  .hint { margin: 0; color: var(--muted); font-size: 0.85rem; line-height: 1.6; }
+  .hint.warn { color: var(--error); }
+  .dlg-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  .spacer { flex: 1; }
+
+  .picker {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .picker label { position: relative; }
+  .picker input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  .picker span {
+    display: block;
+    text-align: center;
+    padding-block: 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    user-select: none;
+  }
+  .picker input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .picker input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .names { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; }
+  .names > div { display: flex; flex-direction: column; gap: 8px; }
+  .names .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .names input[type="password"] {
+    font: inherit;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink);
+    flex: 1;
+    min-width: 0;
+  }
+  .names label { font-size: 0.9rem; }
+  .names a { color: var(--accent); }
+  .err { margin: 0; color: var(--error); font-size: 0.85rem; }
 
   .print-only { display: none; }
 
@@ -161,7 +216,7 @@
     :root { color-scheme: light; }
     html, body { height: auto; background: #fff; color: #000; }
     .app { height: auto; padding: 0; gap: 4mm; }
-    .bar, .note { display: none; }
+    .bar, .note, dialog { display: none; }
     .print-only { display: block; }
     .print-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 14pt; }
     .print-head span { font-size: 10pt; }
@@ -171,8 +226,18 @@
     .grid { gap: 1.5mm; }
     .seat { border-color: #000; background: #fff; color: #000; }
     .seat.none { border-color: transparent; }
-    .seat .no, .seat.has-name .no { font-size: 20pt; color: #000; }
-    .seat .name { font-size: 11pt; margin-top: 1.5mm; }
+    .seat .no { font-size: 20pt; color: #000; }
+    .seat.has-name .no { font-size: 13pt; }
+    .seat .name {
+      display: block;
+      font-size: 13pt;
+      font-weight: 700;
+      margin-top: 1.5mm;
+      max-width: 94%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 </style>
 <!-- artifact:head:end -->
@@ -187,52 +252,120 @@
       <button type="button" class="primary" id="shuffle">席替えする</button>
       <button type="button" id="undo" disabled>1つ前に戻す</button>
       <button type="button" id="flip" aria-pressed="false">教卓から見る</button>
-      <button type="button" id="pdf">PDF・印刷</button>
-      <button type="button" id="csv">CSVで保存</button>
-      <button type="button" id="copy">表をコピー</button>
+      <button type="button" id="open-front">前希望</button>
+      <button type="button" id="open-output">座席表を出力</button>
     </div>
   </header>
   <div class="note" id="note" hidden></div>
   <div class="print-only print-head"><strong>座席表</strong><span id="print-date"></span></div>
   <main class="stage" id="stage"></main>
 </div>
+
+<dialog id="front-dialog" aria-labelledby="front-title">
+  <form method="dialog" class="dlg">
+    <h2 id="front-title">前希望</h2>
+    <p class="hint" id="front-hint"></p>
+    <div class="picker" id="front-picker"></div>
+    <p class="hint" id="front-count"></p>
+    <div class="dlg-actions">
+      <button type="button" id="front-clear">すべて外す</button>
+      <button type="button" id="front-reset">設定ファイルの状態に戻す</button>
+      <span class="spacer"></span>
+      <button class="primary" value="close">閉じる</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="output-dialog" aria-labelledby="output-title">
+  <form method="dialog" class="dlg">
+    <h2 id="output-title">座席表を出力</h2>
+    <div class="names">
+      <div id="names-none" hidden>
+        <p class="hint">名前の一覧はまだ登録されていません。番号だけで出力します。<br>
+          <a href="names.html" target="_blank" rel="noopener">名前の一覧を登録する</a></p>
+      </div>
+      <div id="names-locked" hidden>
+        <label for="pw">名前を入れるには、パスワードを入力してください</label>
+        <div class="row">
+          <input type="password" id="pw" autocomplete="current-password">
+          <button type="button" id="unlock">名前を読み込む</button>
+        </div>
+        <label><input type="checkbox" id="remember" checked> この端末でパスワードを覚える</label>
+        <p class="err" id="pw-error" hidden></p>
+      </div>
+      <div id="names-unlocked" hidden>
+        <div class="row">
+          <label><input type="checkbox" id="with-names" checked> 名前を入れる</label>
+          <span class="spacer"></span>
+          <button type="button" id="forget">この端末の記憶を消す</button>
+        </div>
+      </div>
+    </div>
+    <div class="dlg-actions">
+      <button type="button" id="pdf">PDF・印刷</button>
+      <button type="button" id="xlsx">Excelで保存</button>
+      <button type="button" id="copy">表をコピー</button>
+      <span class="spacer"></span>
+      <button value="close">閉じる</button>
+    </div>
+    <p class="hint" id="output-note" hidden></p>
+  </form>
+</dialog>
 <!-- artifact:scripts:start -->
 <script src="config.js"></script>
+<script src="names.js"></script>
 <script src="seating.js"></script>
+<script src="secret.js"></script>
+<script src="xlsx.js"></script>
 <!-- artifact:scripts:end -->
 <script>
 (function () {
   "use strict";
   const config = window.SEKIGAE_CONFIG;
+  const encryptedNames = window.SEKIGAE_NAMES;
   const { seats, rows, cols } = Seating.parseLayout(config.layout);
-  const studentsByNo = new Map(config.students.map((s) => [s.no, s]));
+  const allNos = config.students.map((s) => s.no).sort((a, b) => a - b);
+  const frontRows = config.frontRows ?? 3;
+  const frontCapacity = seats.filter((s) => s.row < frontRows).length;
+
   const STORAGE_KEY = "sekigae:v1";
   const VIEW_KEY = "sekigae:view";
-  const signature = JSON.stringify([config.layout, config.frontRows, config.students.map((s) => [s.no, !!s.front])]);
+  const FRONT_KEY = "sekigae:front";
+  const NAMEKEY_KEY = "sekigae:namekey";
+  const signature = JSON.stringify([config.layout, allNos]);
 
   const $ = (id) => document.getElementById(id);
   const stage = $("stage");
+
+  const storage = {
+    get(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* 保存できない環境ではそのまま */ } },
+    remove(key) { try { localStorage.removeItem(key); } catch (e) { /* 同上 */ } },
+  };
 
   // 現在の配置と、戻すための履歴
   let current = null; // { seats: [番号|null...], at: ISO文字列 }
   let history = [];
   // true のとき教卓側から見た向き（上下左右を反転し、黒板を下に置く）
   let fromTeacher = false;
+  // 前希望の番号（画面で変えたものがあればそちらを使う）
+  const configFront = () => new Set(config.students.filter((s) => s.front).map((s) => s.no));
+  let front = configFront();
+  // 復号した名前 { "出席番号": "名前" }。画面には出さず、出力のときだけ使う
+  let names = null;
 
   function load() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (saved && saved.signature === signature) {
-        current = saved.current;
-        history = saved.history || [];
-      }
-    } catch (e) { /* 保存できない環境ではそのまま */ }
-    try { fromTeacher = localStorage.getItem(VIEW_KEY) === "teacher"; } catch (e) { /* 同上 */ }
+    const saved = storage.get(STORAGE_KEY);
+    if (saved && saved.signature === signature) {
+      current = saved.current;
+      history = saved.history || [];
+    }
+    fromTeacher = storage.get(VIEW_KEY) === "teacher";
+    const savedFront = storage.get(FRONT_KEY);
+    if (Array.isArray(savedFront)) front = new Set(savedFront.filter((no) => allNos.includes(no)));
   }
   function save() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ signature, current, history }));
-    } catch (e) { /* 保存できない環境ではそのまま */ }
+    storage.set(STORAGE_KEY, { signature, current, history });
   }
 
   function formatDate(iso) {
@@ -246,8 +379,7 @@
 
   // 席替え前は出席番号順に並べて表示する
   function orderedSeats() {
-    const nos = config.students.map((s) => s.no).sort((a, b) => a - b);
-    return seats.map((_, i) => (i < nos.length ? nos[i] : null));
+    return seats.map((_, i) => (i < allNos.length ? allNos[i] : null));
   }
 
   // 表示する向きのマス目。生徒から見た向きなら1行目が黒板側。座席でないマスは undefined
@@ -257,13 +389,12 @@
     return fromTeacher ? m.reverse().map((line) => line.reverse()) : m;
   }
 
-  function label(no) {
-    if (no === null) return "";
-    const name = (studentsByNo.get(no) || {}).name || "";
-    return name ? `${no} ${name}` : String(no);
-  }
+  // 出力に名前を入れるか
+  const useNames = () => !!names && $("with-names").checked;
+  const nameOf = (no) => (useNames() && names[no]) || "";
 
-  function render() {
+  // forPrint が true のときだけ名前をマスに入れる（画面には名前を出さない）
+  function render(forPrint) {
     const assignment = current ? current.seats : orderedSeats();
     const matrix = toMatrix(assignment);
 
@@ -285,7 +416,7 @@
         cell.className = "seat empty";
         cell.innerHTML = '<span class="no">－</span>';
       } else {
-        const name = (studentsByNo.get(no) || {}).name || "";
+        const name = forPrint ? nameOf(no) : "";
         cell.className = "seat" + (name ? " has-name" : "");
         const n = document.createElement("span");
         n.className = "no";
@@ -305,11 +436,11 @@
     stage.replaceChildren(room);
 
     $("status").textContent = current ? `${formatDate(current.at)} の席替え` : "席替え前（出席番号順）";
+    $("print-date").textContent = current ? formatDate(current.at) : "";
     $("flip").textContent = fromTeacher ? "生徒から見る" : "教卓から見る";
     $("flip").setAttribute("aria-pressed", String(fromTeacher));
-    $("print-date").textContent = current ? formatDate(current.at) : "";
     $("undo").disabled = history.length === 0;
-    ["pdf", "csv", "copy"].forEach((id) => { $(id).disabled = !current; });
+    $("open-output").disabled = !current;
   }
 
   function showNote(text) {
@@ -317,18 +448,18 @@
     note.textContent = text;
     note.hidden = !text;
   }
+  function showOutputNote(text) {
+    const note = $("output-note");
+    note.textContent = text;
+    note.hidden = !text;
+  }
 
   function doShuffle() {
     if (current) history = history.concat([current]).slice(-20);
-    current = { seats: Seating.assignSeats(config), at: new Date().toISOString() };
+    const students = allNos.map((no) => ({ no, front: front.has(no) }));
+    current = { seats: Seating.assignSeats({ ...config, students }), at: new Date().toISOString() };
     save();
     showNote("");
-    render();
-  }
-
-  function flip() {
-    fromTeacher = !fromTeacher;
-    try { localStorage.setItem(VIEW_KEY, fromTeacher ? "teacher" : "student"); } catch (e) { /* 保存できない環境ではそのまま */ }
     render();
   }
 
@@ -341,58 +472,182 @@
     render();
   }
 
-  // 書き出し用の表（画面と同じ向き）
-  function gridRows() {
-    return toMatrix(current.seats).map((line) => line.map((no) => (no === undefined ? "" : label(no))));
+  function flip() {
+    fromTeacher = !fromTeacher;
+    storage.set(VIEW_KEY, fromTeacher ? "teacher" : "student");
+    render();
   }
 
-  function csvCell(v) {
-    v = String(v);
-    return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  // ---- 前希望 ----
+  function buildFrontPicker() {
+    $("front-hint").textContent = `番号を押して選びます。選んだ人は前から${frontRows}列目までに入ります。`;
+    $("front-picker").replaceChildren(...allNos.map((no) => {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = `front-${no}`;
+      input.setAttribute("aria-label", `${no}番`);
+      input.addEventListener("change", () => {
+        if (input.checked) front.add(no); else front.delete(no);
+        saveFront();
+      });
+      const span = document.createElement("span");
+      span.textContent = no;
+      label.append(input, span);
+      return label;
+    }));
+  }
+  function syncFrontPicker() {
+    allNos.forEach((no) => { $(`front-${no}`).checked = front.has(no); });
+    const n = front.size;
+    const count = $("front-count");
+    count.className = "hint" + (n > frontCapacity ? " warn" : "");
+    count.textContent = n > frontCapacity
+      ? `${n}人選択中。前から${frontRows}列目までは${frontCapacity}席なので、${n - frontCapacity}人は${frontRows + 1}列目以降に入ります。`
+      : `${n}人選択中（前から${frontRows}列目までは${frontCapacity}席）`;
+  }
+  function saveFront() {
+    storage.set(FRONT_KEY, [...front].sort((a, b) => a - b));
+    syncFrontPicker();
   }
 
-  function downloadCsv() {
-    const lines = [];
-    lines.push(["座席表", formatDate(current.at)]);
-    const rowsOut = gridRows();
-    if (fromTeacher) lines.push(...rowsOut, ["（黒板）"]);
-    else lines.push(["（黒板）"], ...rowsOut);
-    lines.push([]);
-    lines.push(["出席番号", "名前", "前から何列目", "左から何番目"]);
+  // ---- 名前（暗号化された一覧） ----
+  function syncNames() {
+    $("names-none").hidden = !!encryptedNames;
+    $("names-locked").hidden = !encryptedNames || !!names;
+    $("names-unlocked").hidden = !names;
+  }
+
+  async function tryUnlockSaved() {
+    const saved = storage.get(NAMEKEY_KEY);
+    if (!encryptedNames || names || !saved || saved.salt !== encryptedNames.salt) return;
+    try {
+      names = await Secret.unlockWithSavedKey(encryptedNames, saved.key);
+    } catch (e) {
+      storage.remove(NAMEKEY_KEY); // 名前の一覧が作り直されたなど
+    }
+    syncNames();
+  }
+
+  async function unlock() {
+    const pw = $("pw").value;
+    const err = $("pw-error");
+    if (!pw) return;
+    $("unlock").disabled = true;
+    err.hidden = true;
+    try {
+      const result = await Secret.unlockWithPassword(encryptedNames, pw);
+      names = result.names;
+      if ($("remember").checked) storage.set(NAMEKEY_KEY, { salt: encryptedNames.salt, key: result.savedKey });
+      $("pw").value = "";
+    } catch (e) {
+      err.textContent = "パスワードが違います。";
+      err.hidden = false;
+    }
+    $("unlock").disabled = false;
+    syncNames();
+  }
+
+  function forget() {
+    storage.remove(NAMEKEY_KEY);
+    names = null;
+    syncNames();
+  }
+
+  // ---- 出力 ----
+  function positions() {
     const pos = new Map();
     seats.forEach((seat, i) => { if (current.seats[i] !== null) pos.set(current.seats[i], seat); });
-    config.students.slice().sort((a, b) => a.no - b.no).forEach((s) => {
-      const seat = pos.get(s.no);
-      lines.push([s.no, s.name || "", seat ? seat.row + 1 : "", seat ? seat.col + 1 : ""]);
+    return pos;
+  }
+
+  // 座席表（画面と同じ向き）と出席番号順の一覧の2シート
+  function buildWorkbook() {
+    const S = Xlsx.STYLE;
+    const withNames = useNames();
+    const sheetRows = [[{ v: `座席表　${formatDate(current.at)}`, s: S.title }]];
+    const boardRow = Array.from({ length: cols }, (_, c) => ({ v: c === 0 ? "黒板" : "", s: S.board }));
+    const grid = toMatrix(current.seats).map((line) => line.map((no) => {
+      if (no === undefined) return null;
+      if (no === null) return { v: "", s: S.seat };
+      const name = nameOf(no);
+      return { v: name ? `${no}\n${name}` : no, s: S.seat };
+    }));
+    if (fromTeacher) sheetRows.push(...grid, boardRow);
+    else sheetRows.push(boardRow, ...grid);
+    const boardIndex = fromTeacher ? sheetRows.length - 1 : 1;
+    const heights = { 0: 24 };
+    sheetRows.forEach((_, i) => { if (i > 0) heights[i] = i === boardIndex ? 22 : withNames ? 48 : 34; });
+
+    const pos = positions();
+    const listRows = [["出席番号", "名前", "前から何列目", "左から何番目"].map((v) => ({ v, s: S.head }))];
+    allNos.forEach((no) => {
+      const seat = pos.get(no);
+      listRows.push([no, nameOf(no), seat ? seat.row + 1 : "", seat ? seat.col + 1 : ""].map((v) => ({ v, s: S.cell })));
     });
-    const text = "﻿" + lines.map((r) => r.map(csvCell).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+
+    return Xlsx.build([
+      {
+        name: "座席表",
+        rows: sheetRows,
+        colWidths: Array(cols).fill(16),
+        rowHeights: heights,
+        merges: [`A${boardIndex + 1}:${Xlsx.colName(cols - 1)}${boardIndex + 1}`],
+      },
+      { name: "一覧", rows: listRows, colWidths: [10, 20, 14, 14] },
+    ]);
+  }
+
+  // ファイルを保存する。アーティファクトのプレビューでは downloads を使う
+  async function saveFile(filename, bytes) {
+    const downloads = window.claude && window.claude.use ? await window.claude.use("downloads") : null;
+    if (downloads) {
+      try {
+        await downloads.save({ filename, data: bytes });
+      } catch (e) {
+        if (!e || e.code !== "declined") showOutputNote("この環境ではファイルを保存できませんでした。");
+      }
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `座席表_${fileDate(current.at)}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    if (window.SEKIGAE_PREVIEW) showNote("プレビュー環境ではファイルを保存できません。GitHub Pages 版で使えます。");
+  }
+
+  function saveXlsx() {
+    saveFile(`座席表_${fileDate(current.at)}.xlsx`, buildWorkbook());
   }
 
   function printPdf() {
+    $("output-dialog").close();
+    render(true);
+    // 印刷画面を閉じたら名前を外す
+    window.addEventListener("afterprint", () => render(), { once: true });
     window.print();
     if (window.SEKIGAE_PREVIEW) showNote("プレビュー環境では印刷できません。GitHub Pages 版で使えます。");
   }
 
   // タブ区切りでコピー。Googleスプレッドシートにそのまま貼り付けられる
   function copyTable() {
-    const text = (fromTeacher ? gridRows().concat([["黒板"]]) : [["黒板"]].concat(gridRows()))
+    const gridRows = toMatrix(current.seats).map((line) => line.map((no) => {
+      if (no === undefined || no === null) return "";
+      const name = nameOf(no);
+      return name ? `${no} ${name}` : no;
+    }));
+    const text = (fromTeacher ? gridRows.concat([["黒板"]]) : [["黒板"]].concat(gridRows))
       .map((r) => r.join("\t")).join("\n");
-    const done = () => showNote("座席表をコピーしました。スプレッドシートの左上のセルに貼り付けてください。");
+    const done = () => showOutputNote("座席表をコピーしました。スプレッドシートの左上のセルに貼り付けてください。");
     const fallback = () => {
       const ta = document.createElement("textarea");
       ta.value = text;
-      document.body.appendChild(ta);
+      $("output-dialog").appendChild(ta);
       ta.select();
-      try { document.execCommand("copy"); done(); } catch (e) { showNote("コピーできませんでした。"); }
+      try { document.execCommand("copy"); done(); } catch (e) { showOutputNote("コピーできませんでした。"); }
       ta.remove();
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -416,11 +671,33 @@
   $("shuffle").addEventListener("click", doShuffle);
   $("undo").addEventListener("click", undo);
   $("flip").addEventListener("click", flip);
+  $("open-front").addEventListener("click", () => {
+    syncFrontPicker();
+    $("front-dialog").showModal();
+  });
+  $("front-clear").addEventListener("click", () => { front.clear(); saveFront(); });
+  $("front-reset").addEventListener("click", () => {
+    front = configFront();
+    storage.remove(FRONT_KEY);
+    syncFrontPicker();
+  });
+  $("open-output").addEventListener("click", () => {
+    showOutputNote("");
+    syncNames();
+    $("output-dialog").showModal();
+    tryUnlockSaved();
+  });
+  $("unlock").addEventListener("click", unlock);
+  $("pw").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); unlock(); }
+  });
+  $("forget").addEventListener("click", forget);
   $("pdf").addEventListener("click", printPdf);
-  $("csv").addEventListener("click", downloadCsv);
+  $("xlsx").addEventListener("click", saveXlsx);
   $("copy").addEventListener("click", copyTable);
 
   load();
+  buildFrontPicker();
   render();
 })();
 </script>
