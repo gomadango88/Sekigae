@@ -46,21 +46,31 @@
     const frontRows = config.frontRows ?? 3;
     const { rows, seats } = parseLayout(config.layout);
 
-    const front = config.students.filter((s) => s.front);
+    const fixed = new Set(config.fixedFront || []);
+    const pinned = config.students.filter((s) => s.front && fixed.has(s.no));
+    const front = config.students.filter((s) => s.front && !fixed.has(s.no));
     const others = config.students.filter((s) => !s.front);
 
-    let pool = seats.filter((s) => s.row < frontRows);
-    for (let row = frontRows; row < rows && pool.length < front.length; row++) {
-      const need = front.length - pool.length;
-      const rowSeats = shuffle(seats.filter((s) => s.row === row), random);
-      pool = pool.concat(rowSeats.slice(0, need));
-    }
+    const taken = new Set();
+    const pick = (count) => {
+      const free = seats.filter((s) => !taken.has(s));
+      let pool = free.filter((s) => s.row < frontRows);
+      for (let row = frontRows; row < rows && pool.length < count; row++) {
+        const need = count - pool.length;
+        const rowSeats = shuffle(free.filter((s) => s.row === row), random);
+        pool = pool.concat(rowSeats.slice(0, need));
+      }
+      const picked = shuffle(pool, random).slice(0, count);
+      picked.forEach((s) => taken.add(s));
+      return picked;
+    };
 
-    const frontSeats = shuffle(pool, random).slice(0, front.length);
-    const taken = new Set(frontSeats);
+    const pinnedSeats = pick(pinned.length);
+    const frontSeats = pick(front.length);
     const restSeats = shuffle(seats.filter((s) => !taken.has(s)), random);
 
     const bySeat = new Map();
+    pinned.forEach((st, i) => bySeat.set(pinnedSeats[i], st.no));
     front.forEach((st, i) => bySeat.set(frontSeats[i], st.no));
     others.forEach((st, i) => bySeat.set(restSeats[i], st.no));
     return seats.map((seat) => (bySeat.has(seat) ? bySeat.get(seat) : null));

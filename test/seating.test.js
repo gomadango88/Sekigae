@@ -75,6 +75,28 @@ test("4列目も埋まると5列目へ", () => {
   assert.deepStrictEqual(counts.slice(3), [6, 2, 0, 0, 0]);
 });
 
+test("fixedFront は前希望の人数にかかわらず3列目まで", () => {
+  const fixed = [9, 10, 11, 14, 15, 18, 23];
+  for (const nos of [range(1, 30), range(1, 42), range(20, 42), []]) {
+    const cfg = withFront(base, nos.concat(fixed));
+    for (let t = 0; t < 300; t++) {
+      const rows = rowsOf(cfg, Seating.assignSeats(cfg));
+      fixed.forEach((no) => assert.ok(rows.get(no) < 3));
+    }
+  }
+});
+
+test("fixedFront があっても前希望は前から詰めて入る", () => {
+  const nos = range(12, 33);
+  const cfg = withFront(base, nos);
+  for (let t = 0; t < 300; t++) {
+    const rows = rowsOf(cfg, Seating.assignSeats(cfg));
+    const counts = [0, 0, 0, 0, 0, 0, 0, 0];
+    nos.forEach((no) => counts[rows.get(no)]++);
+    assert.deepStrictEqual(counts.slice(3), [6, 2, 0, 0, 0]);
+  }
+});
+
 test("人数が座席より少なければ空席ができる", () => {
   const cfg = { ...base, students: base.students.slice(0, 40) };
   const a = Seating.assignSeats(cfg);
