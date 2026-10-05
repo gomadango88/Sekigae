@@ -226,22 +226,26 @@
     :root { color-scheme: light; }
     html, body { height: auto; background: #fff; color: #000; }
     .app, dialog { display: none !important; }
+    /* 印刷できる幅いっぱいに広げ、高さは幅に比例させる。
+       中身の大きさも幅（cqw）基準にして、用紙・余白・倍率が変わっても1枚に収まるようにする */
     .sheet {
-      display: flex;
-      flex-direction: column;
-      gap: 3mm;
-      width: 277mm;
-      height: 186mm;
+      display: block;
+      width: 100%;
+      aspect-ratio: 277 / 172;
+      container-type: inline-size;
+      overflow: hidden;
+      break-inside: avoid;
       color: #000;
     }
-    .sheet-title { margin: 0; text-align: center; font-size: 17pt; font-weight: 700; }
-    .sheet-head { display: grid; grid-template-columns: 1fr 72mm 1fr; align-items: end; gap: 4mm; font-size: 12pt; }
+    .sheet-inner { height: 100%; display: flex; flex-direction: column; gap: 1.1cqw; }
+    .sheet-title { margin: 0; text-align: center; font-size: 2.2cqw; font-weight: 700; line-height: 1.2; }
+    .sheet-head { display: grid; grid-template-columns: 1fr 26cqw 1fr; align-items: end; gap: 1.4cqw; font-size: 1.5cqw; }
     .sheet-count { text-align: right; }
     .sheet-desk {
-      border: 0.3mm solid #000;
+      border: max(1px, 0.1cqw) solid #000;
       text-align: center;
-      font-size: 13pt;
-      padding-block: 1mm;
+      font-size: 1.65cqw;
+      padding-block: 0.35cqw;
       letter-spacing: 1.5em;
       text-indent: 1.5em;
     }
@@ -249,13 +253,13 @@
       flex: 1;
       min-height: 0;
       display: grid;
-      column-gap: 9mm;
-      row-gap: 3mm;
+      column-gap: 3.2cqw;
+      row-gap: 1cqw;
     }
-    .sheet-cell { display: grid; grid-template-columns: 6mm minmax(0, 1fr); min-height: 0; }
-    .sheet-no { font-size: 9pt; line-height: 1; text-align: right; padding-right: 1mm; font-variant-numeric: tabular-nums; }
+    .sheet-cell { display: grid; grid-template-columns: 2.2cqw minmax(0, 1fr); min-height: 0; }
+    .sheet-no { font-size: 1.15cqw; line-height: 1; text-align: right; padding-right: 0.35cqw; font-variant-numeric: tabular-nums; }
     .sheet-box {
-      border: 0.3mm solid #000;
+      border: max(1px, 0.1cqw) solid #000;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -263,8 +267,8 @@
       min-width: 0;
       overflow: hidden;
     }
-    .sheet-kana { font-size: 7pt; line-height: 1.3; }
-    .sheet-name { font-size: 15pt; line-height: 1.25; white-space: nowrap; }
+    .sheet-kana { font-size: 0.9cqw; line-height: 1.3; }
+    .sheet-name { font-size: 1.9cqw; line-height: 1.25; white-space: nowrap; }
   }
 </style>
 <!-- artifact:head:end -->
@@ -333,6 +337,7 @@
       <input type="date" id="start-date">
       <span class="hint">「○月○日～」として入ります</span>
     </div>
+    <p class="hint">印刷画面では、用紙を A4・横向きにしてください。</p>
     <div class="dlg-actions">
       <button type="button" id="pdf">PDF・印刷</button>
       <button type="button" id="xlsx">Excelで保存</button>
@@ -624,7 +629,7 @@
             const nm = el("sheet-name", name);
             // 長い名前は小さくして四角に収める（半角は全角の約半分の幅）
             const units = Array.from(name).reduce((n, ch) => n + (ch.charCodeAt(0) < 0x100 ? 0.55 : 1), 0);
-            if (units > 6) nm.style.fontSize = `${Math.max(8, (15 * 6) / units).toFixed(1)}pt`;
+            if (units > 6) nm.style.fontSize = `${Math.max(1, (1.9 * 6) / units).toFixed(2)}cqw`;
             box.appendChild(nm);
           }
         }
@@ -639,7 +644,9 @@
       foot.append(el(""), el("sheet-desk", "教卓"), el(""));
       parts.push(foot);
     }
-    $("sheet").replaceChildren(...parts);
+    const inner = el("sheet-inner");
+    inner.append(...parts);
+    $("sheet").replaceChildren(inner);
   }
 
   // 座席表（印刷と同じ見た目・A4横）と出席番号順の一覧の2シート
