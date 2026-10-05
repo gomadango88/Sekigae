@@ -209,7 +209,8 @@
   .err { margin: 0; color: var(--error); font-size: 0.85rem; }
 
   .field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.9rem; }
-  .field input {
+  .field input[type="date"]:disabled { opacity: 0.45; }
+  .field input[type="date"] {
     font: inherit;
     padding: 4px 8px;
     border: 1px solid var(--line);
@@ -333,8 +334,8 @@
       </div>
     </div>
     <div class="field">
-      <label for="start-date">座席表の日付</label>
-      <input type="date" id="start-date">
+      <label><input type="checkbox" id="with-date" checked> 日付を入れる</label>
+      <input type="date" id="start-date" aria-label="座席表の日付">
       <span class="hint">「○月○日～」として入ります</span>
     </div>
     <p class="hint">印刷画面では、用紙を A4・横向きにしてください。</p>
@@ -369,6 +370,7 @@
   const VIEW_KEY = "sekigae:view";
   const FRONT_KEY = "sekigae:front";
   const NAMEKEY_KEY = "sekigae:namekey";
+  const DATE_KEY = "sekigae:withDate";
   const signature = JSON.stringify([config.layout, allNos]);
 
   const $ = (id) => document.getElementById(id);
@@ -598,8 +600,9 @@
 
   const sheetTitle = () => `${config.className || ""}座席表`;
   const countLabel = () => `在籍　${allNos.length}名`;
-  // 「4月7日～」の形。日付が未入力なら席替えした日
+  // 「4月7日～」の形。日付が未入力なら席替えした日。「日付を入れる」を外したときは空
   function startDateLabel() {
+    if (!$("with-date").checked) return "";
     const [, m, d] = ($("start-date").value || fileDate(current.at)).split("-").map(Number);
     return `${m}月${d}日～`;
   }
@@ -807,9 +810,14 @@
   $("open-output").addEventListener("click", () => {
     showOutputNote("");
     if (!$("start-date").value) $("start-date").value = fileDate(current.at);
+    $("start-date").disabled = !$("with-date").checked;
     syncNames();
     $("output-dialog").showModal();
     tryUnlockSaved();
+  });
+  $("with-date").addEventListener("change", () => {
+    $("start-date").disabled = !$("with-date").checked;
+    storage.set(DATE_KEY, $("with-date").checked);
   });
   $("unlock").addEventListener("click", unlock);
   $("pw").addEventListener("keydown", (e) => {
@@ -824,6 +832,7 @@
   window.addEventListener("afterprint", () => $("sheet").replaceChildren());
 
   load();
+  $("with-date").checked = storage.get(DATE_KEY) !== false;
   buildFrontPicker();
   render();
 })();
