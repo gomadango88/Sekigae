@@ -268,8 +268,10 @@
       min-width: 0;
       overflow: hidden;
     }
-    .sheet-kana { font-size: 0.9cqw; line-height: 1.3; }
-    .sheet-name { font-size: 1.9cqw; line-height: 1.25; white-space: nowrap; }
+    /* ふりがなは名前の上に小さく、名前は四角の中ほどに大きく */
+    .sheet-box { gap: 0.3cqw; }
+    .sheet-kana { font-size: 1.1cqw; line-height: 1.2; white-space: nowrap; }
+    .sheet-name { font-size: 1.9cqw; line-height: 1.2; white-space: nowrap; }
   }
 </style>
 <!-- artifact:head:end -->
@@ -434,7 +436,8 @@
   function entryOf(no) {
     const e = useNames() ? names[no] : null;
     if (!e) return { name: "", kana: "" };
-    return typeof e === "string" ? { name: e, kana: "" } : { name: e.name || "", kana: e.kana || "" };
+    const tidy = (v) => (v || "").trim().replace(/[\s\u3000]+/g, "\u3000"); // 姓と名の間は全角スペース
+    return typeof e === "string" ? { name: tidy(e), kana: "" } : { name: tidy(e.name), kana: tidy(e.kana) };
   }
   const nameOf = (no) => entryOf(no).name;
 
@@ -627,14 +630,15 @@
         const box = el("sheet-box");
         if (no !== null) {
           const { name, kana } = entryOf(no);
-          if (kana) box.appendChild(el("sheet-kana", kana));
-          if (name) {
-            const nm = el("sheet-name", name);
-            // 長い名前は小さくして四角に収める（半角は全角の約半分の幅）
-            const units = Array.from(name).reduce((n, ch) => n + (ch.charCodeAt(0) < 0x100 ? 0.55 : 1), 0);
-            if (units > 6) nm.style.fontSize = `${Math.max(1, (1.9 * 6) / units).toFixed(2)}cqw`;
-            box.appendChild(nm);
-          }
+          // 長い文字は小さくして四角に収める（半角は全角の約半分の幅）
+          const fitted = (cls, text, size, maxUnits) => {
+            const e = el(cls, text);
+            const units = Array.from(text).reduce((n, ch) => n + (ch.charCodeAt(0) < 0x100 ? 0.55 : 1), 0);
+            if (units > maxUnits) e.style.fontSize = `${((size * maxUnits) / units).toFixed(2)}cqw`;
+            return e;
+          };
+          if (kana) box.appendChild(fitted("sheet-kana", kana, 1.1, 8.5));
+          if (name) box.appendChild(fitted("sheet-name", name, 1.9, 5.2));
         }
         cell.append(el("sheet-no", no === null ? "" : no), box);
       }
@@ -697,7 +701,8 @@
         if (no === undefined) return;
         const { name, kana } = no === null ? { name: "", kana: "" } : entryOf(no);
         row[numCol(c)] = { v: no === null ? "" : no, s: S.num };
-        row[boxCol(c)] = { v: kana ? `${kana}\n${name}` : name, s: S.box };
+        // ふりがなは小さい文字で名前の上の行に
+        row[boxCol(c)] = { v: kana ? [{ t: `${kana}\n`, sz: 8 }, { t: name, sz: 14 }] : name, s: S.box };
       });
       push(row, withNames ? 40 : 34);
     });
@@ -707,10 +712,11 @@
     }
 
     const pos = positions();
-    const listRows = [["出席番号", "名前", "前から何列目", "左から何番目"].map((v) => ({ v, s: S.head }))];
+    const listRows = [["出席番号", "名前", "ふりがな", "前から何列目", "左から何番目"].map((v) => ({ v, s: S.head }))];
     allNos.forEach((no) => {
       const seat = pos.get(no);
-      listRows.push([no, nameOf(no), seat ? seat.row + 1 : "", seat ? seat.col + 1 : ""].map((v) => ({ v, s: S.cell })));
+      const { name, kana } = entryOf(no);
+      listRows.push([no, name, kana, seat ? seat.row + 1 : "", seat ? seat.col + 1 : ""].map((v) => ({ v, s: S.cell })));
     });
 
     return Xlsx.build([
@@ -722,7 +728,7 @@
         merges,
         landscape: true,
       },
-      { name: "一覧", rows: listRows, colWidths: [10, 20, 14, 14] },
+      { name: "一覧", rows: listRows, colWidths: [10, 20, 24, 14, 14] },
     ]);
   }
 

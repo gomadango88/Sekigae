@@ -95,6 +95,10 @@
   button:disabled { opacity: 0.45; cursor: default; }
   button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   ol { margin: 0; padding-left: 1.4em; }
+  .preview { border-collapse: collapse; font-size: 0.9rem; }
+  .preview th, .preview td { border-bottom: 1px solid var(--line); padding: 4px 12px 4px 0; text-align: left; }
+  .preview th { color: var(--muted); font-weight: 400; }
+  .preview td:first-child { font-variant-numeric: tabular-nums; }
   code { font-family: var(--mono); font-size: 0.9em; }
 </style>
 </head>
@@ -104,10 +108,18 @@
   <p class="lead">名前の一覧をパスワードで暗号化して <code>names.js</code> を作ります。入力した名前とパスワードはこのブラウザの中だけで使い、どこにも送りません。</p>
 
   <section>
-    <h2>1. 名前を入力</h2>
-    <p class="hint">1行に1人ずつ、出席番号順に入力します。スプレッドシートから「番号」と「名前」の2列をコピーして貼り付けてもかまいません。</p>
-    <textarea id="list" placeholder="1	山田 太郎&#10;2	佐藤 花子&#10;…"></textarea>
+    <h2>1. 名前の一覧を読み込む</h2>
+    <p class="hint">「出席番号, 名前, ふりがな」の CSV ファイルを選ぶか、下の欄に貼り付けます。1行目が見出しでもかまいません。スプレッドシートから3列をコピーして貼り付けることもできます。</p>
+    <div class="row">
+      <label for="file">CSV ファイル</label>
+      <input type="file" id="file" accept=".csv,.tsv,.txt,text/csv,text/plain">
+    </div>
+    <textarea id="list" placeholder="1,山田 太郎,やまだ たろう&#10;2,佐藤 花子,さとう はなこ&#10;…"></textarea>
     <p class="hint" id="parsed"></p>
+    <table class="preview" id="preview" hidden>
+      <thead><tr><th>番号</th><th>名前</th><th>ふりがな</th></tr></thead>
+      <tbody></tbody>
+    </table>
     <p class="warn" id="list-warn" hidden></p>
   </section>
 
@@ -140,6 +152,7 @@
 <!-- artifact:scripts:start -->
 <script src="config.js"></script>
 <script src="secret.js"></script>
+<script src="roster.js"></script>
 <!-- artifact:scripts:end -->
 <script>
 (function () {
@@ -148,32 +161,33 @@
   const config = window.SEKIGAE_CONFIG;
   const allNos = config.students.map((s) => s.no).sort((a, b) => a - b);
 
-  // 「番号 名前」の行がすべてならその番号を使い、そうでなければ上から出席番号順に割り当てる
-  function parse(text) {
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const numbered = lines.map((l) => l.match(/^(\d+)[\s\t,、.:：番]+(.+)$/));
-    const names = {};
-    if (lines.length && numbered.every(Boolean)) {
-      numbered.forEach((m) => { names[Number(m[1])] = m[2].trim(); });
-    } else {
-      lines.forEach((l, i) => { if (i < allNos.length) names[allNos[i]] = l; });
-    }
-    return { names, lineCount: lines.length };
+  function check() {
+    const { entries, warnings } = Roster.parseRoster($("list").value, allNos);
+    const nos = Object.keys(entries).map(Number).sort((a, b) => a - b);
+    $("parsed").textContent = $("list").value.trim()
+      ? `${nos.length}人分を読み取りました。${nos.length ? "最初の3人を確かめてください。" : ""}`
+      : "";
+    const tbody = $("preview").querySelector("tbody");
+    tbody.replaceChildren(...nos.slice(0, 3).map((no) => {
+      const tr = document.createElement("tr");
+      [no, entries[no].name, entries[no].kana || ""].forEach((v) => {
+        const td = document.createElement("td");
+        td.textContent = v;
+        tr.appendChild(td);
+      });
+      return tr;
+    }));
+    $("preview").hidden = !nos.length;
+    $("list-warn").textContent = warnings.join("\n");
+    $("list-warn").hidden = !warnings.length;
+    return entries;
   }
 
-  function check() {
-    const { names, lineCount } = parse($("list").value);
-    const got = Object.keys(names).map(Number);
-    const missing = allNos.filter((no) => !names[no]);
-    const extra = got.filter((no) => !allNos.includes(no));
-    $("parsed").textContent = lineCount ? `${got.length}人分を読み取りました。` : "";
-    const warns = [];
-    if (lineCount && missing.length) warns.push(`名前のない番号: ${missing.join(", ")}`);
-    if (extra.length) warns.push(`クラスにない番号: ${extra.join(", ")}`);
-    if (lineCount > allNos.length && !extra.length) warns.push(`行が${allNos.length}人より多いため、${allNos.length + 1}行目以降は使いません。`);
-    $("list-warn").textContent = warns.join("\n");
-    $("list-warn").hidden = !warns.length;
-    return names;
+  async function loadFile() {
+    const file = $("file").files[0];
+    if (!file) return;
+    $("list").value = Roster.decodeBytes(await file.arrayBuffer());
+    check();
   }
 
   async function make() {
@@ -220,6 +234,7 @@
   }
 
   $("list").addEventListener("input", check);
+  $("file").addEventListener("change", loadFile);
   $("make").addEventListener("click", make);
   $("copy").addEventListener("click", copy);
   $("download").addEventListener("click", download);

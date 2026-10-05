@@ -43,7 +43,7 @@
     '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles>' +
     "</styleSheet>";
 
-  // sheet: { name, rows: [[{v, s} | null]], colWidths: [..], rowHeights: {行番号(0始まり): 高さ}, merges: ["A1:F1"], landscape }
+  // sheet: { name, rows: [[{v, s} | null]]（v は文字・数値・[{t, sz}]）, colWidths: [..], rowHeights: {行番号(0始まり): 高さ}, merges: ["A1:F1"], landscape }
   function sheetXml(sheet) {
     const cols = sheet.colWidths
       ? "<cols>" + sheet.colWidths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("") + "</cols>"
@@ -58,6 +58,13 @@
             const s = cell.s ? ` s="${cell.s}"` : "";
             if (cell.v === "" || cell.v === null || cell.v === undefined) return `<c r="${ref}"${s}/>`;
             if (typeof cell.v === "number") return `<c r="${ref}"${s}><v>${cell.v}</v></c>`;
+            // 文字の大きさが違う部分を含む文字列: [{ t: 文字, sz: ポイント }, ...]
+            if (Array.isArray(cell.v)) {
+              const runs = cell.v.map((run) =>
+                `<r><rPr><sz val="${run.sz}"/><rFont val="游ゴシック"/><family val="3"/><charset val="128"/></rPr>` +
+                `<t xml:space="preserve">${esc(run.t)}</t></r>`).join("");
+              return `<c r="${ref}"${s} t="inlineStr"><is>${runs}</is></c>`;
+            }
             return `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${esc(cell.v)}</t></is></c>`;
           })
           .join("");

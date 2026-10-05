@@ -119,3 +119,30 @@ test("名前の暗号化と復号", async () => {
   assert.deepStrictEqual(await Secret.unlockWithSavedKey(blob, savedKey), got);
   await assert.rejects(Secret.unlockWithPassword(blob, "wrong password"));
 });
+
+const Roster = require("../roster.js");
+const nos42 = range(1, 42);
+
+test("CSV（番号・名前・ふりがな、見出しあり）を読む", () => {
+  const csv = "﻿出席番号,氏名,ふりがな\r\n1,山田 太郎,やまだ たろう\r\n2,\"佐藤　花子\",さとう　はなこ\r\n";
+  const { entries } = Roster.parseRoster(csv, nos42);
+  assert.deepStrictEqual(entries[1], { name: "山田　太郎", kana: "やまだ　たろう" });
+  assert.deepStrictEqual(entries[2], { name: "佐藤　花子", kana: "さとう　はなこ" });
+});
+
+test("タブ区切り・ふりがなと名前が逆の列でも読む", () => {
+  const { entries } = Roster.parseRoster("1\tやまだ たろう\t山田 太郎\n2\tすずき じろう\t鈴木 次郎", nos42);
+  assert.deepStrictEqual(entries[1], { name: "山田　太郎", kana: "やまだ　たろう" });
+});
+
+test("名前だけの一覧は出席番号順に割り当てる", () => {
+  const { entries, warnings } = Roster.parseRoster("山田 太郎\n佐藤 花子", nos42);
+  assert.deepStrictEqual(entries[2], { name: "佐藤　花子" });
+  assert.ok(warnings[0].startsWith("名前のない番号: 3, 4"));
+});
+
+test("Shift_JIS の CSV を読む", () => {
+  const sjis = Buffer.from([0x31, 0x2c, 0x8e, 0x52, 0x93, 0x63]); // "1,山田"
+  assert.strictEqual(Roster.decodeBytes(sjis), "1,山田");
+  assert.strictEqual(Roster.decodeBytes(Buffer.from("1,山田", "utf8")), "1,山田");
+});
