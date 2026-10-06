@@ -47,13 +47,14 @@
     const { rows, seats } = parseLayout(config.layout);
 
     const fixed = new Set(config.fixedFront || []);
+    const excluded = new Set((config.fixedFrontExcludeSeats || []).map((n) => seats[n - 1]));
     const pinned = config.students.filter((s) => s.front && fixed.has(s.no));
     const front = config.students.filter((s) => s.front && !fixed.has(s.no));
     const others = config.students.filter((s) => !s.front);
 
     const taken = new Set();
-    const pick = (count) => {
-      const free = seats.filter((s) => !taken.has(s));
+    const pick = (count, skip) => {
+      const free = seats.filter((s) => !taken.has(s) && !(skip && skip.has(s)));
       let pool = free.filter((s) => s.row < frontRows);
       for (let row = frontRows; row < rows && pool.length < count; row++) {
         const need = count - pool.length;
@@ -65,7 +66,7 @@
       return picked;
     };
 
-    const pinnedSeats = pick(pinned.length);
+    const pinnedSeats = pick(pinned.length, excluded);
     const frontSeats = pick(front.length);
     const restSeats = shuffle(seats.filter((s) => !taken.has(s)), random);
 

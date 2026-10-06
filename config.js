@@ -26,6 +26,7 @@ window.SEKIGAE_CONFIG = {
   frontRows: 3,
 
   fixedFront: [9, 10, 11, 14, 15, 18, 23],
+  fixedFrontExcludeSeats: [5, 6],
 
   // 出席番号と、前希望の初期値（前希望なら front: true）
   // 前希望は画面の「前希望」ボタンからも変えられます。画面で変えた内容は、その端末で優先されます。
