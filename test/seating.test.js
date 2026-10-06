@@ -86,15 +86,15 @@ test("fixedFront は前希望の人数にかかわらず3列目まで", () => {
   }
 });
 
-test("fixedFront は5番・6番の席に入らない", () => {
+test("fixedFront は11番・12番の席に入らない", () => {
   const fixed = [9, 10, 11, 14, 15, 18, 23];
   const { seats } = Seating.parseLayout(base.layout);
-  assert.deepStrictEqual([seats[4], seats[5]], [{ row: 1, col: 2 }, { row: 1, col: 3 }]);
+  assert.deepStrictEqual([seats[10], seats[11]], [{ row: 2, col: 2 }, { row: 2, col: 3 }]);
   for (const nos of [range(1, 42), fixed]) {
     const cfg = withFront(base, nos);
     for (let t = 0; t < 500; t++) {
       const a = Seating.assignSeats(cfg);
-      [a[4], a[5]].forEach((no) => assert.ok(!fixed.includes(no)));
+      [a[10], a[11]].forEach((no) => assert.ok(!fixed.includes(no)));
     }
   }
 });
