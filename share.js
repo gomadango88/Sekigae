@@ -36,8 +36,6 @@
       ALGORITHM_VERSION,
       config.layout,
       config.frontRows ?? 3,
-      [...(config.fixedFront || [])].sort((a, b) => a - b),
-      [...(config.fixedFrontExcludeSeats || [])].sort((a, b) => a - b),
       config.students.map((s) => s.no).sort((a, b) => a - b),
       [...frontNos].sort((a, b) => a - b),
     ]);
